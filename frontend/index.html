@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Explainable AI-Based Intrusion Detection System for Network Security. Classify threats (DoS, DDoS, PortScan, Brute Force) and analyze predictions using SHAP values.">
+    <title>XAI-IDS // Explainable Intrusion Detection System</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/frontend/css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="logo-glow"></div>
+                <i class="fa-solid fa-shield-halved brand-icon"></i>
+                <span class="brand-name">XAI-IDS</span>
+            </div>
+            
+            <nav class="nav-menu">
+                <button class="nav-btn active" id="tab-dashboard-btn" onclick="switchTab('dashboard')">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>Dashboard</span>
+                </button>
+                <button class="nav-btn" id="tab-sniffer-btn" onclick="switchTab('sniffer')">
+                    <i class="fa-solid fa-satellite-dish"></i>
+                    <span>Traffic Sniffer</span>
+                </button>
+                <button class="nav-btn" id="tab-manual-btn" onclick="switchTab('manual')">
+                    <i class="fa-solid fa-magnifying-glass-chart"></i>
+                    <span>Manual Analyzer</span>
+                </button>
+                <button class="nav-btn" id="tab-model-btn" onclick="switchTab('model')">
+                    <i class="fa-solid fa-microchip"></i>
+                    <span>Model Insights</span>
+                </button>
+            </nav>
+            
+            <div class="sidebar-status-panel">
+                <div class="status-indicator">
+                    <span class="status-dot green" id="status-dot"></span>
+                    <span class="status-text" id="status-text">System Loading...</span>
+                </div>
+                <div class="status-indicator sub-indicator">
+                    <i class="fa-solid fa-brain status-icon"></i>
+                    <span class="status-text" id="model-status-text">Checking Model...</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="top-header">
+                <h1 id="page-title">Security Dashboard</h1>
+                <div class="header-actions">
+                    <span id="sniffer-badge" class="badge bg-inactive">
+                        <span class="pulse-dot"></span>
+                        <span class="badge-text">Sniffer Inactive</span>
+                    </span>
+                    <div id="system-time" class="system-time">00:00:00</div>
+                </div>
+            </header>
+            
+            <div class="content-wrapper">
+                
+                <!-- 1. DASHBOARD VIEW -->
+                <div class="tab-view active" id="tab-dashboard">
+                    <!-- Stat Cards -->
+                    <section class="stat-grid">
+                        <div class="card stat-card glow-cyan">
+                            <div class="stat-icon-wrapper cyan">
+                                <i class="fa-solid fa-network-wired"></i>
+                            </div>
+                            <div class="stat-details">
+                                <span class="stat-label">Flows Processed</span>
+                                <h3 class="stat-value" id="stats-total-flows">0</h3>
+                            </div>
+                        </div>
+                        <div class="card stat-card glow-amber">
+                            <div class="stat-icon-wrapper amber">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                            </div>
+                            <div class="stat-details">
+                                <span class="stat-label">Security Alerts</span>
+                                <h3 class="stat-value text-amber" id="stats-alerts">0</h3>
+                            </div>
+                        </div>
+                        <div class="card stat-card glow-red">
+                            <div class="stat-icon-wrapper red">
+                                <i class="fa-solid fa-radiation"></i>
+                            </div>
+                            <div class="stat-details">
+                                <span class="stat-label">Highest Threat Type</span>
+                                <h3 class="stat-value text-red" id="stats-highest-threat">-</h3>
+                            </div>
+                        </div>
+                        <div class="card stat-card glow-blue">
+                            <div class="stat-icon-wrapper blue">
+                                <i class="fa-solid fa-percentage"></i>
+                            </div>
+                            <div class="stat-details">
+                                <span class="stat-label">Model Accuracy</span>
+                                <h3 class="stat-value" id="stats-accuracy">N/A</h3>
+                            </div>
+                        </div>
+                    </section>
+                    
+                    <div class="dashboard-grid">
+                        <!-- Left Pane: Threat Overview & Traffic Chart Horizontal Scroll Row -->
+                        <div class="dash-left">
+                            <!-- Threat Index Card -->
+                            <div class="card padding-lg relative overflow-hidden dash-card">
+                                <div class="card-header">
+                                    <h2>Live Threat Level Indicator</h2>
+                                </div>
+                                <div class="threat-indicator-container">
+                                    <div class="threat-progress-track">
+                                        <div class="threat-progress-bar" id="threat-bar" style="width: 0%"></div>
+                                    </div>
+                                    <div class="threat-meta">
+                                        <span class="threat-level-text" id="threat-text">CLEAN</span>
+                                        <span class="threat-percentage" id="threat-percentage">0%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- XAI Research & Methodology Info Card -->
+                            <div class="card padding-lg relative overflow-hidden academic-info-card dash-card">
+                                <div class="card-header">
+                                    <h2><i class="fa-solid fa-graduation-cap"></i> Explainable AI (XAI) Framework</h2>
+                                </div>
+                                <div class="academic-info-body">
+                                    <p>
+                                        This system implements a <strong>Random Forest Classifier</strong> trained on the <strong>CICIDS2017</strong> benchmark dataset. To resolve the black-box nature of machine learning, we integrate <strong>SHAP (SHapley Additive Explanations)</strong>.
+                                    </p>
+                                    <div class="academic-bullet-grid">
+                                        <div class="bullet-item"><i class="fa-solid fa-gamepad"></i> <span><strong>Game Theory:</strong> Uses Shapley values to fairly distribute feature influence on the model outcome.</span></div>
+                                        <div class="bullet-item"><i class="fa-solid fa-scale-balanced"></i> <span><strong>Additive Attribution:</strong> Quantifies how much each packet metric pushes the classification towards or away from a threat.</span></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Traffic Volume Chart -->
+                            <div class="card padding-lg h-chart dash-card">
+                                <div class="card-header">
+                                    <h2>Recent Traffic Analysis</h2>
+                                    <span class="card-subtitle">Real-time packet arrival distribution</span>
+                                </div>
+                                <div class="chart-scroll-container">
+                                    <div class="chart-container">
+                                        <canvas id="trafficVolumeChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Right Pane: Active Alerts Feed -->
+                        <div class="dash-right">
+                            <div class="card padding-lg h-full flex-col">
+                                <div class="card-header border-bottom">
+                                    <h2>Recent Security Alerts</h2>
+                                    <button class="clear-btn" onclick="clearAlerts()"><i class="fa-solid fa-trash-can"></i> Clear</button>
+                                </div>
+                                <div class="alerts-feed flex-grow" id="alerts-feed">
+                                    <div class="empty-state">
+                                        <i class="fa-solid fa-check-shield text-green"></i>
+                                        <p>No threats detected. System secure.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 2. TRAFFIC SNIFFER VIEW -->
+                <div class="tab-view" id="tab-sniffer">
+                    <div class="sniffer-actions-bar margin-bottom-md">
+                        <button class="btn btn-primary" id="btn-toggle-sniffer" onclick="toggleSniffer()">
+                            <i class="fa-solid fa-play"></i> Start Traffic Sniffing
+                        </button>
+                        <button class="btn btn-success" id="btn-export-csv" onclick="exportTrafficCSV()">
+                            <i class="fa-solid fa-file-csv"></i> Export CSV
+                        </button>
+                        <div class="switch-container">
+                            <label class="switch">
+                                <input type="checkbox" id="chk-simulate-attacks" onchange="toggleSimulatedAttacks(this.checked)" checked>
+                                <span class="slider-toggle round"></span>
+                            </label>
+                            <span>Simulate Attack Injection</span>
+                        </div>
+                        <span class="text-muted" id="sniffer-status-info">Sniffer stands ready. Will auto-fallback to simulated stream if driver or privileges are unavailable.</span>
+                    </div>
+                    
+                    <div class="splitter-layout">
+                        <!-- Left Panel: Table of Traffic -->
+                        <div class="split-left card padding-none overflow-hidden">
+                            <div class="table-container">
+                                <table class="table-hover" id="traffic-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Time</th>
+                                            <th>Source IP</th>
+                                            <th>Destination IP</th>
+                                            <th>Proto</th>
+                                            <th>Port</th>
+                                            <th>Classification</th>
+                                            <th>Confidence</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="traffic-tbody">
+                                        <tr class="placeholder-row">
+                                            <td colspan="7" class="text-center text-muted">
+                                                Start the sniffer to capture network flows. Click on any row to run SHAP explanations.
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <!-- Right Panel: SHAP & Recommendation Details -->
+                        <div class="split-right flex-col gap-md">
+                            <!-- Detail Flow Info Card -->
+                            <div class="card padding-lg flex-grow overflow-auto" id="sniffer-detail-panel">
+                                <div class="empty-state">
+                                    <i class="fa-solid fa-circle-info"></i>
+                                    <h3>No Flow Selected</h3>
+                                    <p>Click on any captured packet flow to inspect details, generate SHAP features, and get recommendations.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 3. MANUAL ANALYZER VIEW -->
+                <div class="tab-view" id="tab-manual">
+                    <div class="analyzer-grid">
+                        <!-- Input Card -->
+                        <div class="card padding-lg">
+                            <div class="card-header border-bottom">
+                                <h2>Network Flow Input Parameters</h2>
+                                <div class="preset-dropdown-container">
+                                    <label for="preset-select">Load Preset:</label>
+                                    <select id="preset-select" class="form-control-sm" onchange="loadPreset()">
+                                        <option value="benign">Normal benign HTTPS traffic</option>
+                                        <option value="doshulk">DoS Hulk flood attack</option>
+                                        <option value="ddos">DDoS flood attack</option>
+                                        <option value="portscan">Port Scan reconnaissance</option>
+                                        <option value="ssh">SSH brute force intrusion</option>
+                                        <option value="web">Web SQLi exploitation</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <form id="manual-analysis-form" onsubmit="runManualAnalysis(event)" class="form-grid margin-top-md">
+                                <div class="form-group">
+                                    <label for="m-port">Destination Port</label>
+                                    <input type="number" id="m-port" name="Destination Port" class="form-control" value="443" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="m-duration">Flow Duration (sec)</label>
+                                    <input type="number" id="m-duration" name="Flow Duration" step="any" class="form-control" value="2.35" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="m-fwd-pkts">Total Fwd Packets</label>
+                                    <input type="number" id="m-fwd-pkts" name="Total Fwd Packets" class="form-control" value="12" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="m-bwd-pkts">Total Backward Packets</label>
+                                    <input type="number" id="m-bwd-pkts" name="Total Backward Packets" class="form-control" value="10" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="m-fwd-len">Total Length of Fwd Packets</label>
+                                    <input type="number" id="m-fwd-len" name="Total Length of Fwd Packets" class="form-control" value="540" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="m-bwd-len">Total Length of Bwd Packets</label>
+                                    <input type="number" id="m-bwd-len" name="Total Length of Bwd Packets" class="form-control" value="980" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="m-fwd-max">Fwd Packet Length Max</label>
+                                    <input type="number" id="m-fwd-max" name="Fwd Packet Length Max" class="form-control" value="130" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="m-fwd-min">Fwd Packet Length Min</label>
+                                    <input type="number" id="m-fwd-min" name="Fwd Packet Length Min" class="form-control" value="0" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="m-fwd-mean">Fwd Packet Length Mean</label>
+                                    <input type="number" id="m-fwd-mean" name="Fwd Packet Length Mean" step="any" class="form-control" value="45.0" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="m-bwd-max">Bwd Packet Length Max</label>
+                                    <input type="number" id="m-bwd-max" name="Bwd Packet Length Max" class="form-control" value="230" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="m-bwd-min">Bwd Packet Length Min</label>
+                                    <input type="number" id="m-bwd-min" name="Bwd Packet Length Min" class="form-control" value="0" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="m-bwd-mean">Bwd Packet Length Mean</label>
+                                    <input type="number" id="m-bwd-mean" name="Bwd Packet Length Mean" step="any" class="form-control" value="98.0" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="m-bytes-s">Flow Bytes/s</label>
+                                    <input type="number" id="m-bytes-s" name="Flow Bytes/s" step="any" class="form-control" value="646.8" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="m-pkts-s">Flow Packets/s</label>
+                                    <input type="number" id="m-pkts-s" name="Flow Packets/s" step="any" class="form-control" value="9.36" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="m-iat-mean">Flow IAT Mean (sec)</label>
+                                    <input type="number" id="m-iat-mean" name="Flow IAT Mean" step="any" class="form-control" value="0.11" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="m-iat-max">Flow IAT Max (sec)</label>
+                                    <input type="number" id="m-iat-max" name="Flow IAT Max" step="any" class="form-control" value="0.85" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="m-fwd-header">Fwd Header Length</label>
+                                    <input type="number" id="m-fwd-header" name="Fwd Header Length" class="form-control" value="240" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="m-bwd-header">Bwd Header Length</label>
+                                    <input type="number" id="m-bwd-header" name="Bwd Header Length" class="form-control" value="200" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="m-pkt-mean">Packet Length Mean</label>
+                                    <input type="number" id="m-pkt-mean" name="Packet Length Mean" step="any" class="form-control" value="69.09" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="m-pkt-size">Average Packet Size</label>
+                                    <input type="number" id="m-pkt-size" name="Average Packet Size" step="any" class="form-control" value="72.54" required>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-success btn-full text-center" id="btn-manual-analyze">
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i> Classify & Explain Flow
+                                </button>
+                            </form>
+                        </div>
+                        
+                        <!-- Output Card -->
+                        <div class="card padding-lg flex-col" id="manual-result-panel">
+                            <div class="empty-state">
+                                <i class="fa-solid fa-terminal"></i>
+                                <h3>Classification Awaiting Run</h3>
+                                <p>Load a preset, change the values, and click "Classify & Explain Flow" to execute prediction, SHAP, and security advisories.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 4. MODEL PERFORMANCE VIEW -->
+                <div class="tab-view" id="tab-model">
+                    <div class="model-training-card card padding-lg margin-bottom-lg">
+                        <div class="training-info">
+                            <h2>IDS Model Status</h2>
+                            <p class="text-muted">The system utilizes a Random Forest classifier. You can retrain the model on the CICIDS2017 dataset at any time to generate fresh diagnostics and SHAP background metrics.</p>
+                        </div>
+                        <button class="btn btn-primary" id="btn-train-model" onclick="trainModel()">
+                            <i class="fa-solid fa-gears animate-spin-hover"></i> Retrain Random Forest
+                        </button>
+                    </div>
+                    
+                    <div class="model-dashboard-grid" id="model-dashboard-panel">
+                        <!-- Model metrics will render here -->
+                        <div class="card padding-lg text-center" style="grid-column: span 12;">
+                            <div class="empty-state">
+                                <i class="fa-solid fa-brain"></i>
+                                <h3>Load Metrics</h3>
+                                <p>Make sure the model is trained. Loading diagnostic reports...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+    
+    <!-- Custom Javascript -->
+    <script src="/frontend/js/app.js"></script>
+</body>
+</html>
